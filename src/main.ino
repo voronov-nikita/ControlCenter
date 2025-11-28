@@ -1,6 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <FastLED.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 #define LED_PIN D4
 #define NUM_LEDS 300
@@ -21,11 +23,24 @@ CRGB color1 = CRGB::Red;
 CRGB color2 = CRGB::Blue;
 uint8_t speed = 15;
 uint8_t waveLength = 50;
-uint8_t brightness = BRIGHTNESS;  // ✅ Новая переменная яркости
+uint8_t brightness = BRIGHTNESS;
+
+// LCD объект (адрес 0x27 — если не работает, смени на 0x3F)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("🚀 Запуск LED контроллера...");
+  
+  // Инициализация LCD
+  Wire.begin(D2, D1);  // SDA=D2(GPIO4), SCL=D1(GPIO5)
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("🚀 LED Ctrl v3.1");
+  lcd.setCursor(0, 1);
+  lcd.print("Запуск...");
+  delay(1500);
   
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(brightness);
@@ -42,23 +57,63 @@ void setup() {
   Serial.print("📶 IP адрес: ");
   Serial.println(WiFi.localIP());
   
+  // Показать IP на экране
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("IP:");
+  lcd.print(WiFi.localIP().toString());
+  delay(2000);
+  
   server.on("/", handleRoot);
   server.on("/set", handleSet);
   server.begin();
   
   Serial.println("🌐 Веб-сервер запущен!");
+  
+  // Финальное приветствие на LCD
+  updateLcdDisplay();
 }
 
 void loop() {
   server.handleClient();
   
   static uint32_t lastUpdate = 0;
+  static uint32_t lastLcdUpdate = 0;
+  
   if (millis() - lastUpdate > (60 - speed) * 2) {
     updateLeds();
-    FastLED.setBrightness(brightness);  // ✅ Обновляем яркость каждый кадр
+    FastLED.setBrightness(brightness);
     FastLED.show();
     lastUpdate = millis();
   }
+  
+  // Обновление LCD каждые 2 секунды
+  if (millis() - lastLcdUpdate > 2000) {
+    updateLcdDisplay();
+    lastLcdUpdate = millis();
+  }
+}
+
+void updateLcdDisplay() {
+  lcd.clear();
+  
+  // Верхняя строка: режим + скорость
+  lcd.setCursor(0, 0);
+  const char* modes[] = {"Static", "Blend", "Wave", "Fire", "Rainbow", "Confetti"};
+  lcd.print(modes[mode]);
+  lcd.setCursor(10, 0);
+  lcd.print("S:");
+  lcd.print(speed);
+  
+  // Нижняя строка: яркость + краткий IP
+  lcd.setCursor(0, 1);
+  lcd.print("B:");
+  lcd.print(brightness);
+  lcd.setCursor(7, 1);
+  IPAddress ip = WiFi.localIP();
+  lcd.print(ip[0]); lcd.print("."); 
+  if (ip[1] < 100) lcd.print("0");  // Добавляем ведущий ноль
+  lcd.print(ip[1]);
 }
 
 void updateLeds() {
@@ -113,17 +168,17 @@ void handleRoot() {
   String page = F("<!DOCTYPE html><html><head>");
   page += F("<meta charset='UTF-8'>");
   page += F("<meta name='viewport' content='width=device-width,initial-scale=1'>");
-  page += F("<title>🌈 LED Контроллер v3.0</title>");
+  page += F("<title>🌈 LED Контроллер v3.1</title>");
   page += F("<style>");
-  page += F("body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px;margin:0;min-height:100vh;}");
-  page += F(".card{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border-radius:20px;padding:25px;margin:10px 0;box-shadow:0 8px 32px rgba(0,0,0,0.3);}");
-  page += F("input,select{width:100%;margin:8px 0;padding:12px;border:none;border-radius:10px;background:rgba(255,255,255,0.2);color:white;font-size:16px;box-sizing:border-box;}");
-  page += F("input[type=range]{height:8px;} button{background:linear-gradient(45deg,#ff6b6b,#feca57);color:white;padding:15px;font-size:18px;border:none;border-radius:12px;width:100%;font-weight:bold;cursor:pointer;transition:transform 0.2s;}");
+  page += F("body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:black;padding:20px;margin:0;min-height:100vh;}");
+  page += F(".card{background:rgba(150,150,150,0.1);backdrop-filter:blur(10px);border-radius:20px;padding:25px;margin:10px 0;box-shadow:0 8px 32px rgba(0,0,0,0.3);}");  
+  page += F("input,select{width:100%;margin:8px 0;padding:12px;border:none;border-radius:10px;background:rgba(150,150,150,0.2);color:black;font-size:16px;box-sizing:border-box;}");
+  page += F("input[type=range]{height:8px;} button{background:linear-gradient(45deg,#ff6b6b,#feca57);color:black;padding:15px;font-size:18px;border:none;border-radius:12px;width:100%;font-weight:bold;cursor:pointer;transition:transform 0.2s;}");
   page += F("button:hover{transform:scale(1.02);} h1{text-align:center;font-size:28px;} h2{font-size:22px;margin:0 0 15px 0;} label{display:block;margin:10px 0;} output{font-size:18px;font-weight:bold;}");
   page += F("</style></head><body>");
   
-  page += F("<div class='card'><h1>🎨 LED Контроллер v3.0</h1>");
-  page += F("<p style='text-align:center;color:#ffd700;font-size:16px;'>📶 IP: ") + WiFi.localIP().toString() + F("</p></div>");
+  page += F("<div class='card'><h1>🎨 LED Контроллер v3.1</h1>");
+  page += F("<p style='text-align:center;color:#ffd700;font-size:16px;'>📶 IP: ") + WiFi.localIP().toString() + F(" | LCD:ON</p></div>");
   
   page += F("<form action='/set' method='GET'>");
   
@@ -163,7 +218,7 @@ void handleRoot() {
     page += F("</div>");
   }
   
-  // 💡 Яркость ✅ НОВЫЙ ПОЛЗУНОК!
+  // 💡 Яркость
   page += F("<div class='card'><h2>💡 Яркость</h2>");
   page += F("<label>Уровень (1-255): ");
   page += F("<input type='range' name='brightness' min='1' max='255' value='") + String(brightness) + 
@@ -213,11 +268,14 @@ void handleSet() {
   if (server.hasArg("speed")) speed = constrain(server.arg("speed").toInt(), 1, 50);
   if (server.hasArg("wave")) waveLength = constrain(server.arg("wave").toInt(), 10, 100);
   
-  // ✅ Яркость!
+  // Яркость
   if (server.hasArg("brightness")) {
     brightness = constrain(server.arg("brightness").toInt(), 1, 255);
     FastLED.setBrightness(brightness);
   }
+  
+  // ✅ Обновить LCD сразу после изменений
+  updateLcdDisplay();
   
   server.sendHeader("Location", "/");
   server.send(302);

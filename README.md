@@ -1,2 +1,16 @@
+![header-image](./trash/header%20image%201.jpg)
+
 # ControlCenter
-several service units in the form of an application, firmware for the board, and others for the purpose of controlling the esp8266 microcontroller and all modules connected to it via the USB SERIAL port
+
+> [!NOTE]
+> Данный репозиторий представляет собой
+> несколько сервисных модулей в виде приложения, 
+> встроенного ПО для платы и других для управления микроконтроллерами семейства esp8266 
+> и всеми модулями, подключенными к нему через последовательный порт USB
+>
+> Интерфейс управления реализован двумя путями:
+> - прямой путь по USB COM порту
+> - удаленный путь с подключением устройства в локальную сеть
+> 
+
+
